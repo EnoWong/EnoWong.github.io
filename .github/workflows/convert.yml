@@ -1,0 +1,11 @@
+name: keep-alive
+on:
+  schedule:
+    - cron: '0 0 * * *'   # 每天 UTC 00:00
+  workflow_dispatch:
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - run: curl -s https://api.convertx.tld/v1/health || true
