@@ -1,0 +1,835 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>文件转换工具 - File Converter</title>
+    <meta name="description" content="简洁高效的在线文件格式转换工具">
+    
+    <!-- 引入必要的库 -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.4.2/mammoth.browser.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="convert.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+            background: #ffffff;
+            color: #333333;
+            line-height: 1.6;
+            overflow-x: hidden;
+            padding-top: 70px;
+        }
+
+        /* 固定导航栏 */
+        .navbar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 70px;
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(20px);
+            border-bottom: 1px solid #e5e5e5;
+            z-index: 1000;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 30px;
+        }
+
+        .navbar-logo {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .navbar-logo img {
+            height: 40px;
+            width: 40px;
+            object-fit: contain;
+        }
+
+        .navbar-title {
+            font-size: 1.2rem;
+            font-weight: 600;
+            color: #333;
+        }
+
+        .language-switch {
+            display: flex;
+            align-items: center;
+            background: #f5f5f5;
+            border-radius: 25px;
+            padding: 4px;
+            gap: 2px;
+        }
+
+        .lang-btn {
+            padding: 8px 16px;
+            border: none;
+            background: transparent;
+            color: #666;
+            border-radius: 20px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-size: 14px;
+            font-weight: 500;
+        }
+
+        .lang-btn.active {
+            background: white;
+            color: #333;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        .lang-btn:hover {
+            color: #333;
+        }
+
+        /* 公告栏 */
+        .announcement {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px 30px;
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .announcement::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.1), transparent);
+            animation: shimmer 3s infinite;
+        }
+
+        @keyframes shimmer {
+            0% { left: -100%; }
+            100% { left: 100%; }
+        }
+
+        .announcement h3 {
+            font-size: 1.1rem;
+            margin-bottom: 10px;
+            font-weight: 600;
+        }
+
+        .announcement p {
+            font-size: 0.95rem;
+            opacity: 0.95;
+            max-width: 800px;
+            margin: 0 auto;
+        }
+
+        .announcement strong {
+            font-weight: 700;
+        }
+
+        /* 主容器 */
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 40px 20px;
+        }
+
+        /* 标题区域 */
+        .header {
+            text-align: center;
+            margin-bottom: 50px;
+        }
+
+        .header h1 {
+            font-size: 2.8rem;
+            font-weight: 300;
+            color: #333;
+            margin-bottom: 15px;
+            letter-spacing: -0.5px;
+        }
+
+        .header p {
+            font-size: 1.1rem;
+            color: #666;
+            max-width: 600px;
+            margin: 0 auto;
+        }
+
+        /* 主面板 */
+        .main-panel {
+            background: #ffffff;
+            border: 1px solid #e5e5e5;
+            border-radius: 16px;
+            padding: 40px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+            margin-bottom: 40px;
+        }
+
+        /* 标签页 */
+        .converter-tabs {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 10px;
+            margin-bottom: 40px;
+            background: #f8f9fa;
+            border-radius: 12px;
+            padding: 8px;
+        }
+
+        .tab-btn {
+            background: transparent;
+            border: none;
+            padding: 16px 20px;
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            text-align: center;
+            border-radius: 8px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .tab-btn::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 0;
+            height: 0;
+            background: rgba(102, 126, 234, 0.1);
+            border-radius: 50%;
+            transition: all 0.4s ease;
+            transform: translate(-50%, -50%);
+            z-index: 0;
+        }
+
+        .tab-btn:hover::before {
+            width: 120%;
+            height: 120%;
+        }
+
+        .tab-btn.active {
+            background: white;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+            transform: translateY(-1px);
+        }
+
+        .tab-icon {
+            font-size: 1.8rem;
+            margin-bottom: 8px;
+            display: block;
+            position: relative;
+            z-index: 1;
+        }
+
+        .tab-title {
+            font-size: 0.95rem;
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 4px;
+            position: relative;
+            z-index: 1;
+        }
+
+        .tab-desc {
+            font-size: 0.8rem;
+            color: #888;
+            position: relative;
+            z-index: 1;
+        }
+
+        /* 转换区域 */
+        .converter-section {
+            display: none;
+        }
+
+        .converter-section.active {
+            display: block;
+            animation: fadeInUp 0.5s ease;
+        }
+
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        /* 上传区域 */
+        .upload-area {
+            border: 2px dashed #ddd;
+            border-radius: 12px;
+            padding: 60px 30px;
+            text-align: center;
+            margin-bottom: 30px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            background: #fafafa;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .upload-area::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(102, 126, 234, 0.05), transparent);
+            transition: left 0.6s ease;
+        }
+
+        .upload-area:hover {
+            border-color: #667eea;
+            background: #f0f4ff;
+            transform: scale(1.01);
+        }
+
+        .upload-area:hover::before {
+            left: 100%;
+        }
+
+        .upload-area.drag-over {
+            border-color: #667eea;
+            background: #e8f0fe;
+            transform: scale(1.02);
+        }
+
+        .upload-icon {
+            font-size: 3rem;
+            margin-bottom: 15px;
+            opacity: 0.6;
+            animation: float 3s ease-in-out infinite;
+        }
+
+        @keyframes float {
+            0%, 100% { transform: translateY(0px); }
+            50% { transform: translateY(-10px); }
+        }
+
+        .upload-text {
+            font-size: 1.2rem;
+            font-weight: 500;
+            color: #333;
+            margin-bottom: 8px;
+        }
+
+        .upload-subtext {
+            color: #666;
+            margin-bottom: 10px;
+        }
+
+        .file-limit {
+            color: #667eea;
+            font-size: 0.9rem;
+            font-weight: 500;
+        }
+
+        .file-input {
+            display: none;
+        }
+
+        /* 格式选择器 */
+        .format-selector {
+            background: #f8f9fa;
+            border-radius: 12px;
+            padding: 25px;
+            margin-bottom: 30px;
+        }
+
+        .format-title {
+            font-size: 1rem;
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 15px;
+            text-align: center;
+        }
+
+        .format-options {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        .format-btn {
+            padding: 10px 18px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            background: white;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-size: 0.9rem;
+            font-weight: 500;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .format-btn::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: #333;
+            transition: left 0.3s ease;
+            z-index: 0;
+        }
+
+        .format-btn span {
+            position: relative;
+            z-index: 1;
+            transition: color 0.3s ease;
+        }
+
+        .format-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        }
+
+        .format-btn.selected {
+            border-color: #333;
+        }
+
+        .format-btn.selected::before {
+            left: 0;
+        }
+
+        .format-btn.selected span {
+            color: white;
+        }
+
+        /* 转换按钮 */
+        .convert-btn {
+            width: 100%;
+            padding: 16px;
+            border: none;
+            border-radius: 12px;
+            background: #333;
+            color: white;
+            font-size: 1.1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin-bottom: 20px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .convert-btn::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 0;
+            height: 0;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 50%;
+            transition: all 0.4s ease;
+            transform: translate(-50%, -50%);
+        }
+
+        .convert-btn:hover {
+            background: #222;
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.2);
+        }
+
+        .convert-btn:hover::before {
+            width: 300px;
+            height: 300px;
+        }
+
+        .convert-btn:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .convert-btn:disabled::before {
+            display: none;
+        }
+
+        /* 进度条 */
+        .progress {
+            display: none;
+            background: #f8f9fa;
+            border-radius: 12px;
+            padding: 20px;
+            margin: 20px 0;
+        }
+
+        .progress-text {
+            text-align: center;
+            margin-bottom: 15px;
+            font-weight: 500;
+            color: #333;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 6px;
+            background: #e5e5e5;
+            border-radius: 3px;
+            overflow: hidden;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #667eea, #764ba2);
+            width: 0%;
+            transition: width 0.3s ease;
+            border-radius: 3px;
+            position: relative;
+        }
+
+        .progress-fill::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.4), transparent);
+            animation: progressShimmer 1.5s infinite;
+        }
+
+        @keyframes progressShimmer {
+            0% { transform: translateX(-100%); }
+            100% { transform: translateX(100%); }
+        }
+
+        /* 文件信息 */
+        .file-info {
+            display: none;
+            background: #f8f9fa;
+            border-radius: 12px;
+            padding: 20px;
+            margin: 20px 0;
+        }
+
+        .file-info-title {
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 15px;
+            text-align: center;
+        }
+
+        .file-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px;
+            background: white;
+            border-radius: 8px;
+            margin-bottom: 8px;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+            transition: all 0.3s ease;
+        }
+
+        .file-item:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        .file-item:last-child {
+            margin-bottom: 0;
+        }
+
+        .file-name {
+            font-weight: 500;
+            color: #333;
+            flex: 1;
+            margin-right: 15px;
+            word-break: break-all;
+        }
+
+        .file-size {
+            color: #666;
+            font-size: 0.9rem;
+        }
+
+        /* 结果区域 */
+        .result-area {
+            display: none;
+            background: #f0f8ff;
+            border-radius: 12px;
+            padding: 25px;
+            margin-top: 20px;
+            border: 1px solid #e3f2fd;
+        }
+
+        .success-header {
+            text-align: center;
+            color: #333;
+            font-size: 1.2rem;
+            font-weight: 600;
+            margin-bottom: 20px;
+        }
+
+        .download-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px;
+            background: white;
+            border-radius: 8px;
+            margin-bottom: 10px;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+            transition: all 0.3s ease;
+        }
+
+        .download-item:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        .download-btn {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 6px;
+            background: #333;
+            color: white;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-size: 0.9rem;
+        }
+
+        .download-btn:hover {
+            background: #222;
+            transform: translateY(-1px);
+        }
+
+        /* 错误信息 */
+        .error-message {
+            display: none;
+            background: #fff5f5;
+            color: #c53030;
+            border: 1px solid #fed7d7;
+            border-radius: 8px;
+            padding: 15px;
+            margin: 15px 0;
+            text-align: center;
+        }
+
+        /* 统计区域 */
+        .stats-section {
+            background: white;
+            border: 1px solid #e5e5e5;
+            border-radius: 16px;
+            padding: 30px;
+            margin-bottom: 40px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 20px;
+            text-align: center;
+        }
+
+        .stat-item {
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            transition: all 0.3s ease;
+        }
+
+        .stat-item:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        }
+
+        .stat-number {
+            font-size: 2rem;
+            font-weight: 300;
+            color: #333;
+            display: block;
+            margin-bottom: 5px;
+        }
+
+        .stat-label {
+            font-size: 0.9rem;
+            color: #666;
+        }
+
+        /* 响应式设计 */
+        @media (max-width: 768px) {
+            .navbar {
+                padding: 0 15px;
+            }
+            
+            .navbar-title {
+                font-size: 1rem;
+            }
+            
+            .container {
+                padding: 20px 15px;
+            }
+            
+            .header h1 {
+                font-size: 2.2rem;
+            }
+            
+            .main-panel {
+                padding: 25px;
+                border-radius: 12px;
+            }
+            
+            .converter-tabs {
+                grid-template-columns: 1fr 1fr;
+                gap: 8px;
+            }
+            
+            .upload-area {
+                padding: 40px 20px;
+            }
+            
+            .format-options {
+                gap: 8px;
+            }
+            
+            .format-btn {
+                padding: 8px 14px;
+                font-size: 0.8rem;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .converter-tabs {
+                grid-template-columns: 1fr;
+            }
+            
+            .language-switch {
+                display: none;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- 固定导航栏 -->
+    <nav class="navbar">
+        <div class="navbar-logo">
+            <img src="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHZpZXdCb3g9IjAgMCA0MCA0MCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHJlY3Qgd2lkdGg9IjQwIiBoZWlnaHQ9IjQwIiByeD0iOCIgZmlsbD0iIzMzMzMzMyIvPgo8cGF0aCBkPSJNMTIgMTJIMjhWMTZIMTJWMTJaIiBmaWxsPSJ3aGl0ZSIvPgo8cGF0aCBkPSJNMTIgMThIMjhWMjJIMTJWMThaIiBmaWxsPSJ3aGl0ZSIvPgo8cGF0aCBkPSJNMTIgMjRIMjRWMjhIMTJWMjRaIiBmaWxsPSJ3aGl0ZSIvPgo8L3N2Zz4K" alt="Logo">
+            <span class="navbar-title" data-zh="文件转换工具" data-en="File Converter">文件转换工具</span>
+        </div>
+        <div class="language-switch">
+            <button class="lang-btn active" onclick="switchLanguage('zh')">中文</button>
+            <button class="lang-btn" onclick="switchLanguage('en')">English</button>
+        </div>
+    </nav>
+
+    <!-- 公告栏 -->
+    <div class="announcement">
+        <h3 data-zh="系统公告" data-en="Announcement">系统公告</h3>
+        <p data-zh="尊敬的用户，欢迎使用本网站！当前版本为 <strong>测试版</strong>，由于资源有限，正在不断优化和改进，后续将逐步扩展服务器资源，优化性能，为大家提供更稳定、高效的体验。感谢您的理解与支持！最后，欢迎提供您的意见反馈！反馈邮箱:EnoHUANG@126.com" data-en="Dear users, welcome to our website! Current version is <strong>BETA</strong>. Due to limited resources, we are continuously optimizing and improving. We will gradually expand server resources and optimize performance to provide you with a more stable and efficient experience. Thank you for your understanding and support! Finally, welcome to provide your feedback! Feedback email: EnoHUANG@126.com">
+            尊敬的用户，欢迎使用本网站！当前版本为 <strong>测试版</strong>，由于资源有限，正在不断优化和改进，后续将逐步扩展服务器资源，优化性能，为大家提供更稳定、高效的体验。感谢您的理解与支持！最后，欢迎提供您的意见反馈！反馈邮箱:EnoHUANG@126.com
+        </p>
+    </div>
+
+    <div class="container">
+        <!-- 标题区域 -->
+        <header class="header">
+            <h1 data-zh="在线文件转换" data-en="Online File Converter">在线文件转换</h1>
+            <p data-zh="简洁高效的文件格式转换工具，支持多种格式互转" data-en="Simple and efficient file format conversion tool supporting multiple format conversions">
+                简洁高效的文件格式转换工具，支持多种格式互转
+            </p>
+        </header>
+
+        <!-- 主面板 -->
+        <main class="main-panel">
+            <!-- 标签页导航 -->
+            <div class="converter-tabs">
+                <button class="tab-btn active" data-tab="document">
+                    <span class="tab-icon">📄</span>
+                    <div class="tab-title" data-zh="文档转换" data-en="Document">文档转换</div>
+                    <div class="tab-desc" data-zh="PDF・Word・Excel" data-en="PDF・Word・Excel">PDF・Word・Excel</div>
+                </button>
+                <button class="tab-btn" data-tab="image">
+                    <span class="tab-icon">🖼️</span>
+                    <div class="tab-title" data-zh="图片转换" data-en="Image">图片转换</div>
+                    <div class="tab-desc" data-zh="JPG・PNG・WebP・GIF" data-en="JPG・PNG・WebP・GIF">JPG・PNG・WebP・GIF</div>
+                </button>
+                <button class="tab-btn" data-tab="audio">
+                    <span class="tab-icon">🎵</span>
+                    <div class="tab-title" data-zh="音频转换" data-en="Audio">音频转换</div>
+                    <div class="tab-desc" data-zh="MP3・WAV・AAC" data-en="MP3・WAV・AAC">MP3・WAV・AAC</div>
+                </button>
+                <button class="tab-btn" data-tab="video">
+                    <span class="tab-icon">🎬</span>
+                    <div class="tab-title" data-zh="视频转换" data-en="Video">视频转换</div>
+                    <div class="tab-desc" data-zh="MP4・WebM・AVI" data-en="MP4・WebM・AVI">MP4・WebM・AVI</div>
+                </button>
+            </div>
+
+            <!-- 文档转换 -->
+            <div class="converter-section active" id="document">
+                <div class="upload-area" id="documentUpload">
+                    <div class="upload-icon">📄</div>
+                    <div class="upload-text" data-zh="点击或拖拽上传文档" data-en="Click or drag to upload documents">点击或拖拽上传文档</div>
+                    <div class="upload-subtext" data-zh="支持 PDF、Word(.docx)、Excel(.xlsx) 等格式" data-en="Support PDF, Word(.docx), Excel(.xlsx) formats">
+                        支持 PDF、Word(.docx)、Excel(.xlsx) 等格式
+                    </div>
+                    <div class="file-limit" data-zh="单个文件最大 200MB" data-en="Max file size: 200MB">单个文件最大 200MB</div>
+                </div>
+                <input type="file" class="file-input" id="documentInput" accept=".pdf,.docx,.xlsx,.doc,.xls,image/*" multiple>
+                
+                <div class="file-info" id="documentInfo">
+                    <div class="file-info-title" data-zh="选中的文件" data-en="Selected Files">选中的文件</div>
+                </div>
+                
+                <div class="format-selector">
+                    <div class="format-title" data-zh="选择目标格式" data-en="Choose Target Format">选择目标格式</div>
+                    <div class="format-options" id="documentFormats">
+                        <div class="format-btn selected" data-format="pdf"><span>PDF</span></div>
+                        <div class="format-btn" data-format="images"><span data-zh="图片" data-en="Images">图片</span></div>
+                        <div class="format-btn" data-format="docx"><span>Word</span></div>
+                        <div class="format-btn" data-format="xlsx"><span>Excel</span></div>
+                    </div>
+                </div>
+                
+                <button class="convert-btn" id="convertDocument" onclick="batchConvert()" disabled>
+                    <span data-zh="开始转换" data-en="Start Converting">开始转换</span>
+                </button>
+                
+                <div class="progress" id="documentProgress">
+                    <div class="progress-text" data-zh="正在转换中..." data-en="Converting...">正在转换中...</div>
+                    <div class="progress-bar">
+                        <div class="progress-fill"></div>
+                    </div>
+                </div>
+                
+                <div class="error-message" id="documentError"></div>
+                <div class="result-area" id="documentResult"></div>
+            </div>
+
+            <!-- 图片转换 -->
+            <div class="converter-section" id="image">
+                <div class="upload-area" id="imageUpload">
+                    <div class="upload-icon">🖼️</div>
+                    <div class="upload-text" data-zh="点击或拖拽上传图片" data-en="Click or drag to upload images">点击或拖拽上传图片</div>
+                    <div class="upload-subtext" data-zh="支持 JPG、PNG、GIF、WebP、BMP 等格式" data-en="Support JPG, PNG, GIF, WebP, BMP formats">
+                        支持 JPG、PNG、GIF、WebP、BMP 等格式
+                    </div>
+                    <div class="file-limit" data-zh="支持批量转换，单个文件最大 200MB" data-en="Batch conversion supported, max file size: 200MB">
+                        支持批量转换，单个文件最大 200MB
+                    </div>
+                </div>
+                <input type="file" class="file-input" id="imageInput" accept="image/*" multiple
