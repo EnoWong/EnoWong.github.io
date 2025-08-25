@@ -12,6 +12,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.4.2/mammoth.browser.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script src="convert.js"></script>
+    <script src="convert.min.js"></script>
     <style>
         * {
             margin: 0;
@@ -805,9 +806,9 @@
                     </div>
                 </div>
                 
-                <button class="convert-btn" id="convertDocument" onclick="batchConvert()" disabled>
-                    <span data-zh="开始转换" data-en="Start Converting">开始转换</span>
-                </button>
+                <button class="convert-btn" id="convertDocument" onclick="convertFiles(document.getElementById('documentInput').files, document.querySelector('#documentFormats .format-btn.selected').dataset.format)">
+    <span data-zh="开始转换" data-en="Start Converting">开始转换</span>
+</button>
                 
                 <div class="progress" id="documentProgress">
                     <div class="progress-text" data-zh="正在转换中..." data-en="Converting...">正在转换中...</div>
